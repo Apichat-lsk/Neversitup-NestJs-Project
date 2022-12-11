@@ -240,7 +240,7 @@ export class OrderService {
             const resultData = await new this.orderModel(jsonData).save();
             if (!resultData) throw new HttpException("ORDER_PRODUCT_FAILED", HttpStatus.BAD_REQUEST);
             return {
-                statusCode: 200,
+                statusCode: new HttpException("SUCCESS", HttpStatus.OK).getStatus(),
                 message: "ORDER_PRODUCT_SUCCESS"
             };
         } catch (error) {
@@ -265,7 +265,7 @@ export class OrderService {
             const resultData = await new this.orderHistoryModel(jsonData).save();
             if (!resultData) throw new HttpException("CANCEL_ORDER_FAILED", HttpStatus.BAD_REQUEST);
             return {
-                statusCode: 200,
+                statusCode: new HttpException("SUCCESS", HttpStatus.OK).getStatus(),
                 message: "CANCEL_ORDER_SUCCESS"
             };
         } catch (error) {
@@ -290,7 +290,7 @@ export class OrderService {
             const resultData = await new this.orderHistoryModel(jsonData).save();
             if (!resultData) throw new HttpException("CONFIRM_ORDER_FAILED", HttpStatus.BAD_REQUEST);
             return {
-                statusCode: 200,
+                statusCode: new HttpException("SUCCESS", HttpStatus.OK).getStatus(),
                 message: "CONFIRM_ORDER_SUCCESS"
             };
         } catch (error) {
