@@ -1,9 +1,10 @@
 import { IsNotEmpty, IsString } from "@nestjs/class-validator";
 import { IsNumber, IsPhoneNumber } from "class-validator";
 
-export class OrderDTO {
+export class OrderHistoryDTO {
 
     userId: string;
+    orderId: string;
     productId: string;
     orderNumber: string;
     status: string;
@@ -38,22 +39,21 @@ export class cancelOrderDTO {
 
     status: string;
 }
-export class confirmOrderDTO {
+export class confirmOrderHistoryDTO {
+
 
     userId: string;
+    orderId: string;
     productId: string;
+    status: string;
 
     @IsNotEmpty()
     @IsString()
     orderNumber: string;
 
-    @IsNotEmpty()
-    @IsString()
     productCode: string;
 
     quantity: number;
 
     amount: number;
-
-    status: string;
 }

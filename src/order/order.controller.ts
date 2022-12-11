@@ -1,7 +1,8 @@
-import { Body, Controller, Post, UseGuards, Req, Delete } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { cancelOrderDTO, OrderDTO } from 'src/dto/order.dto';
+import { cancelOrderDTO, confirmOrderDTO, OrderDTO } from 'src/dto/order.dto';
+import { confirmOrderHistoryDTO } from 'src/dto/order_history.dto';
 import { UserDocument } from 'src/user/user.schema';
 import { OrderService } from './order.service';
 
@@ -10,10 +11,10 @@ export class OrderController {
 
     constructor(private readonly orderService: OrderService) { }
 
-    @Post('/orderProduct')
+    @Post('/createOrderProduct')
     @UseGuards(AuthGuard)
-    orderProduct(@Req() req: Request, @Body() data: OrderDTO) {
-        return this.orderService.orderProduct(req.user as UserDocument, data);
+    createOrderProduct(@Req() req: Request, @Body() data: OrderDTO) {
+        return this.orderService.createOrderProduct(req.user as UserDocument, data);
     }
 
     @Post('/getViewOrderProduct')
@@ -22,10 +23,22 @@ export class OrderController {
         return this.orderService.getViewOrderProduct(req.user as UserDocument);
     }
 
-    @Delete('/cancelOrder')
+    @Post('/getViewOrderHistory')
+    @UseGuards(AuthGuard)
+    getViewOrderHistory(@Req() req: Request) {
+        return this.orderService.getViewOrderHistory(req.user as UserDocument);
+    }
+
+    @Patch('/cancelOrder')
     @UseGuards(AuthGuard)
     cancelOrder(@Req() req: Request, @Body() data: cancelOrderDTO) {
         return this.orderService.cancelOrder(req.user as UserDocument, data);
+    }
+
+    @Patch('/confirmOrder')
+    @UseGuards(AuthGuard)
+    confirmOrder(@Req() req: Request, @Body() data: confirmOrderHistoryDTO) {
+        return this.orderService.confirmOrder(req.user as UserDocument, data);
     }
 
 }

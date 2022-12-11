@@ -1,3 +1,4 @@
+import { MomentModule } from '@ccmos/nestjs-moment';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { DatabaseModule } from 'src/config/connectMongoDB/database.module';
@@ -10,6 +11,9 @@ import { OrderService } from './order.service';
     JwtModule.register({
       secret: jwtConstants.secret,
       signOptions: { expiresIn: '24h' },
+    }),
+    MomentModule.forRoot({
+      tz: 'Asia/Taipei',
     }),
   ],
   controllers: [OrderController],

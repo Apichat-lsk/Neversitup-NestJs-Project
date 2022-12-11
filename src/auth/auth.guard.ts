@@ -16,11 +16,15 @@ export class AuthGuard implements CanActivate {
         try {
             const request = context.switchToHttp().getRequest();
             const token = request.headers.authorization?.replace(/^bearer /i, '');
-            if (!token) throw new HttpException('UNAUTHORIZED', HttpStatus.BAD_REQUEST);
-            const verifyToken = this.jwtService.verify(token)
+            if (!token) throw new HttpException('UNAUTHORIZED', HttpStatus.UNAUTHORIZED);
+            const verifyToken = this.jwtService.verify(token);
             return request.user = verifyToken;
         } catch (error) {
-            throw new HttpException("TOKEN_EXPIRED", HttpStatus.BAD_REQUEST);
+            if (error.status === 401) {
+                throw error;
+            } else {
+                throw new HttpException("TOKEN_EXPIRED", HttpStatus.BAD_REQUEST);
+            }
         }
     };
 }

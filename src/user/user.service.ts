@@ -21,21 +21,55 @@ export class UserService {
     ) {
     }
 
+    responseResult(data: []) {
+        if (data.length) {
+            return {
+                status: new HttpException("SUCCESS", HttpStatus.OK).getStatus(),
+                message: new HttpException("SUCCESS", HttpStatus.OK).message,
+                result: data
+            };
+        } else {
+            return {
+                status: new HttpException("NOT_FOUND", HttpStatus.NOT_FOUND).getStatus(),
+                message: new HttpException("NOT_FOUND", HttpStatus.NOT_FOUND).message,
+                result: data
+            };
+        }
+    }
+
     async findAll(): Promise<User[]> {
         return this.userModel.find({}).exec();
     }
 
     async getProfile(data: any) {
-        const resultData = await this.userModel.findOne({ username: data.user.username }).exec();
-        return resultData;
+        try {
+            const resultData = await this.userModel.aggregate([
+                {
+                    $match: {
+                        $and: [{ username: data.user.username }]
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        firstName: '$firstName',
+                        lastName: '$lastName',
+                        tel: '$tel',
+                    }
+                }
+            ]).exec();
+            return this.responseResult(resultData as []);
+        } catch (error) {
+            throw new HttpException("INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
-    async registerUser(user: UserDocument): Promise<User> {
+    async registerUser(user: UserDocument) {
         try {
             const saltOrRounds = 10;
             const password = user.password;
             const hash = await bcrypt.hash(password, saltOrRounds);
-            const jsonData: UserDocument = {
+            const jsonData = {
                 userId: id,
                 firstName: user.firstName,
                 lastName: user.lastName,
@@ -43,8 +77,11 @@ export class UserService {
                 username: user.username,
                 password: hash,
             };
-            const resultData = await new this.userModel(jsonData).save();
-            return resultData;
+            await new this.userModel(jsonData).save();
+            const data = [{ ...jsonData }]
+            delete data[0]?.username;
+            delete data[0]?.password;
+            return this.responseResult(data as []);
         } catch (error) {
             throw new HttpException("USERNAME_IS_ALREADY", HttpStatus.BAD_REQUEST);
         }

@@ -6,5 +6,6 @@ export interface OrderDocument {
     readonly productId: string;
     readonly quantity: number;
     readonly amount: number;
+    readonly status: string;
 
 }

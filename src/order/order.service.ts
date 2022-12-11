@@ -5,17 +5,37 @@ import { OrderDTO } from 'src/dto/order.dto';
 import { Product, ProductDocument } from 'src/product/product.schema';
 import { OrderDocument } from 'src/user/interfaces/order.interface';
 import { User, UserDocument } from 'src/user/user.schema';
+import { OrderHistory } from './order_history.schema';
 import { Order } from './order.schema';
+import * as moment from 'moment';
+import { OrderHistoryDTO } from 'src/dto/order_history.dto';
 
 @Injectable()
 export class OrderService {
 
     constructor(
-        @InjectModel('order') private orderModel: Model<Order>,
-        @InjectModel('product') private productModel: Model<Product>,
+        @InjectModel('orders') private orderModel: Model<Order>,
+        @InjectModel('order_histories') private orderHistoryModel: Model<OrderHistory>,
+        @InjectModel('products') private productModel: Model<Product>,
         @InjectModel('users') private userModel: Model<User>,
     ) {
 
+    }
+
+    responseResult(data: []) {
+        if (data.length) {
+            return {
+                status: new HttpException("SUCCESS", HttpStatus.OK).getStatus(),
+                message: new HttpException("SUCCESS", HttpStatus.OK).message,
+                result: data
+            };
+        } else {
+            return {
+                status: new HttpException("NOT_FOUND", HttpStatus.NOT_FOUND).getStatus(),
+                message: new HttpException("NOT_FOUND", HttpStatus.NOT_FOUND).message,
+                result: data
+            };
+        }
     }
 
     makeid(length: number) {
@@ -28,10 +48,6 @@ export class OrderService {
         return result.toUpperCase();
     }
 
-    async getProfile(data: any) {
-        const resultData = await this.userModel.findOne({ username: data.user.username }).exec();
-        return resultData;
-    }
     async getProductByProductCode(productCode: string): Promise<ProductDocument[]> {
         const resultData = await this.productModel.aggregate([
             {
@@ -61,6 +77,10 @@ export class OrderService {
                     updateDate: '$updateDate',
                 }
             }]).exec();
+        resultData.map((val) => {
+            val.createDate = moment(val.createDate).format('DD/MM/YYYY HH:mm:ss')
+            val.updateDate = moment(val.updateDate).format('DD/MM/YYYY HH:mm:ss')
+        })
         return resultData;
     }
     async getViewOrderProduct(user: UserDocument) {
@@ -72,9 +92,9 @@ export class OrderService {
             },
             {
                 $lookup: {
-                    from: 'product',
+                    from: 'products',
                     let: { productId: '$productId' },
-                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$productId'] }] } } }, { $project: { productTypeId: '$productTypeId', productName: '$productName' } }],
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$productId'] }] } } }, { $project: { productTypeId: '$productTypeId', productName: '$productName', productCode: '$productCode' } }],
                     as: 'Product'
                 }
             },
@@ -93,19 +113,97 @@ export class OrderService {
                 $unwind: { path: '$ProductType' }
             },
             {
+                $lookup: {
+                    from: 'order_status',
+                    let: { status: '$status' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$value', '$$status'] }] } } }, { $project: { description: '$description' } }],
+                    as: 'status'
+                }
+            },
+            {
+                $unwind: { path: '$status' }
+            },
+            {
                 $project: {
+                    _id: 0,
                     userId: '$userId',
                     productTypeName: '$ProductType.productTypeName',
                     productName: '$Product.productName',
+                    productCode: '$Product.productCode',
                     date: '$date',
                     quantity: '$quantity',
                     amount: '$amount',
-                    orderNumber: '$orderNumber'
+                    orderNumber: '$orderNumber',
+                    status: '$status.description'
                 }
-            }]).exec();
-        return resultData;
+            }
+        ]).exec();
+        resultData.map((val) => {
+            val.date = moment(val.date).format('DD/MM/YYYY HH:mm:ss')
+        })
+        return this.responseResult(resultData as []);
     }
-    async orderProduct(user: UserDocument, data: OrderDTO) {
+    async getViewOrderHistory(user: UserDocument) {
+        const resultData = await this.orderHistoryModel.aggregate([
+            {
+                $match: {
+                    $and: [{ userId: user.userId }]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'products',
+                    let: { productId: '$productId' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$productId'] }] } } }, { $project: { productTypeId: '$productTypeId', productName: '$productName', productCode: '$productCode' } }],
+                    as: 'Product'
+                }
+            },
+            {
+                $unwind: { path: '$Product' }
+            },
+            {
+                $lookup: {
+                    from: 'product_type',
+                    let: { productTypeId: '$Product.productTypeId' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$productTypeId'] }] } } }, { $project: { productTypeName: '$productTypeName' } }],
+                    as: 'ProductType'
+                }
+            },
+            {
+                $unwind: { path: '$ProductType' }
+            },
+            {
+                $lookup: {
+                    from: 'order_status',
+                    let: { status: '$status' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$value', '$$status'] }] } } }, { $project: { description: '$description' } }],
+                    as: 'status'
+                }
+            },
+            {
+                $unwind: { path: '$status' }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    userId: '$userId',
+                    productTypeName: '$ProductType.productTypeName',
+                    productName: '$Product.productName',
+                    productCode: '$Product.productCode',
+                    date: '$date',
+                    quantity: '$quantity',
+                    amount: '$amount',
+                    orderNumber: '$orderNumber',
+                    status: '$status.description'
+                }
+            }
+        ]).exec();
+        resultData.map((val) => {
+            val.date = moment(val.date).format('DD/MM/YYYY HH:mm:ss')
+        })
+        return this.responseResult(resultData as []);
+    }
+    async createOrderProduct(user: UserDocument, data: OrderDTO) {
         try {
             const resultCheckProduct = await this.getProductByProductCode(data.productCode);
             if (!resultCheckProduct.length) throw new HttpException("PRODUCT_NOT_FOUND", HttpStatus.BAD_REQUEST);
@@ -136,7 +234,8 @@ export class OrderService {
                 productId: new Types.ObjectId(resultCheckProduct[0]?._id),
                 quantity: data.quantity,
                 amount: data.amount * data.quantity,
-                orderNumber: `TH-${this.makeid(10)}`
+                orderNumber: `TH-${this.makeid(10)}`,
+                status: "000"
             };
             const resultData = await new this.orderModel(jsonData).save();
             if (!resultData) throw new HttpException("ORDER_PRODUCT_FAILED", HttpStatus.BAD_REQUEST);
@@ -150,11 +249,49 @@ export class OrderService {
     }
     async cancelOrder(user: UserDocument, data: OrderDTO) {
         try {
-            const resultData = await this.orderModel.deleteOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }] }).exec();
+            // const resultData = await this.orderModel.deleteOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }] }).exec();
+            const resultUpdate = await this.orderModel.updateOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }, { status: '000' }] }, { $set: { status: "002" } }).exec();
+            if (resultUpdate.matchedCount <= 0) throw new HttpException("CANCEL_ORDER_FAILED", HttpStatus.BAD_REQUEST);
+            const orderProduct = await this.orderModel.findOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }, { status: "002" }] }).exec();
+            const jsonData: any = {
+                userId: user.userId,
+                orderId: orderProduct._id,
+                productId: orderProduct.productId,
+                quantity: orderProduct.quantity,
+                amount: orderProduct.amount,
+                orderNumber: orderProduct.orderNumber,
+                status: orderProduct.status
+            };
+            const resultData = await new this.orderHistoryModel(jsonData).save();
             if (!resultData) throw new HttpException("CANCEL_ORDER_FAILED", HttpStatus.BAD_REQUEST);
             return {
                 statusCode: 200,
                 message: "CANCEL_ORDER_SUCCESS"
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async confirmOrder(user: UserDocument, data: OrderHistoryDTO) {
+        try {
+            const resultUpdate = await this.orderModel.updateOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }, { status: "000" }] }, { $set: { status: "001" } }).exec();
+            if (resultUpdate.matchedCount <= 0) throw new HttpException("CONFIRM_ORDER_FAILED", HttpStatus.BAD_REQUEST);
+            const orderProduct = await this.orderModel.findOne({ $and: [{ userId: user.userId }, { orderNumber: data.orderNumber }, { status: "001" }] }).exec();
+            const jsonData: any = {
+                userId: user.userId,
+                orderId: orderProduct._id,
+                productId: orderProduct.productId,
+                quantity: orderProduct.quantity,
+                amount: orderProduct.amount,
+                orderNumber: orderProduct.orderNumber,
+                status: orderProduct.status
+            };
+            const resultData = await new this.orderHistoryModel(jsonData).save();
+            if (!resultData) throw new HttpException("CONFIRM_ORDER_FAILED", HttpStatus.BAD_REQUEST);
+            return {
+                statusCode: 200,
+                message: "CONFIRM_ORDER_SUCCESS"
             };
         } catch (error) {
             throw error;

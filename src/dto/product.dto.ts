@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsString } from "@nestjs/class-validator";
-import { IsNumber, IsPhoneNumber } from "class-validator";
+import { IsNumber, IsPhoneNumber, isString } from "class-validator";
 
 export class ProductDTO {
 
@@ -15,5 +15,15 @@ export class ProductDTO {
 
     @IsNotEmpty()
     @IsNumber()
+    quantity: number;
+}
+export class ProductByProductCodeDTO {
+
+    @IsNotEmpty()
+    @IsString()
+    productCode: string;
+    productTypeId: string;
+    productName: string;
+    price: number;
     quantity: number;
 }
